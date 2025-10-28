@@ -106,8 +106,6 @@ async function startGaaraBot() {
 
     sock.ev.on('creds.update', saveCreds);
 
-    sock.ev.on('creds.update', saveCreds);
-
     sock.ev.on('messages.upsert', async (m) => {
         const msg = m.messages[0];
 
