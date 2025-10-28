@@ -69,25 +69,33 @@ async function startGaaraBot() {
     });
 
     sock.ev.on('connection.update', (update) => {
-        const { connection, lastDisconnect, qr } = update;
-        
-        if (qr) {
-            console.log('⚡️ Escanea este código QR para conectar el bot:');
-            qrcode.generate(qr, { small: true });
+    const { connection, lastDisconnect, qr } = update;
+    
+    if (connection === 'close') {
+        const shouldReconnect = (lastDisconnect.error instanceof Boom)?.output?.statusCode !== DisconnectReason.loggedOut;
+        console.log('La conexión se cerró. Reintentando:', shouldReconnect);
+        if (shouldReconnect) {
+            startGaaraBot();
         }
+    } 
+    
+    else if (connection === 'open') {
+        console.log('✅ Conexión establecida. Bot listo.');
+        if (fs.existsSync('./qr.svg')) {
+            fs.unlinkSync('./qr.svg');
+            console.log('QR.svg eliminado al establecer conexión.');
+        }
+    }
 
-        if (connection === 'close') {
-            let reason = new Boom(lastDisconnect?.error)?.output.statusCode;
-            if (reason === DisconnectReason.loggedOut) {
-                console.log('❌ Conexión cerrada. Por favor, borra la carpeta de sesión (' + sessionName + ') y vuelve a correr para escanear un nuevo QR.');
-            } else {
-                console.log('🚨 Conexión perdida. Intentando reconectar...');
-                startGaaraBot(); 
-            }
-        } else if (connection === 'open') {
-            console.log('✅ Bot conectado exitosamente. Bienvenido a Gaara-Bot!');
-        }
-    });
+    if (qr) {
+        console.log('⚠️ Se necesita escanear el QR. Generando código...');
+        
+        qrcode.toFile('./qr.svg', qr, { type: 'svg' }, (err) => {
+            if (err) console.error("Error al guardar el QR:", err);
+            else console.log('QR guardado en qr.svg. ¡Escanea la URL!');
+        });
+    }
+});
 
     sock.ev.on('creds.update', saveCreds);
 
@@ -820,8 +828,28 @@ _¡Que empiece el drama de Solthar!_
 }
 
 http.createServer((req, res) => {
-    res.writeHead(200, { 'Content-Type': 'text/plain' });
-    res.end('Bot LEWELLYN-BOT-SOLTHAR activo. Busque el QR en los logs de Render.');
+    const qrPath = './qr.svg';
+
+    if (fs.existsSync(qrPath)) {
+        const qrContent = fs.readFileSync(qrPath, 'utf8');
+        
+        res.writeHead(200, { 'Content-Type': 'text/html' });
+        res.end(`
+            <div style="font-family: sans-serif; text-align: center; padding: 20px;">
+                <h1>⚠️ ¡ESCANEA ESTE CÓDIGO QR! ⚠️</h1>
+                <p>Usa WhatsApp > Ajustes > Dispositivos Vinculados para conectar tu bot.</p>
+                <div style="width: 300px; margin: 20px auto; border: 1px solid #ddd; padding: 10px; border-radius: 10px;">
+                    ${qrContent}
+                </div>
+                <p>Este código desaparecerá una vez que el bot esté conectado.</p>
+                <p>Mantén esta página abierta por si necesitas reconectarte.</p>
+            </div>
+        `);
+    } 
+    else {
+        res.writeHead(200, { 'Content-Type': 'text/plain' });
+        res.end('Bot LEWELLYN-BOT-SOLTHAR activo. ¡Ya está conectado a WhatsApp!');
+    }
 }).listen(port, () => {
     console.log(`\n\n✅ Servidor web iniciado en el puerto ${port}.`);
     startGaaraBot(); 
