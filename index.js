@@ -6,6 +6,11 @@ import * as fs from 'fs';
 import * as Jimp from 'jimp';
 import http from 'http';
 
+if (fs.existsSync('./auth_info_baileys')) {
+    console.log('🚨 Limpiando sesión auth_info_baileys para nuevo despliegue...');
+    fs.rmSync('./auth_info_baileys', { recursive: true, force: true });
+}
+
 const port = process.env.PORT || 8000;
 
 function getEconomyData() {
