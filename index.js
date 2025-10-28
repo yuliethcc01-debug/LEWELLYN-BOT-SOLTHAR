@@ -4,6 +4,8 @@ import P from 'pino';
 import qrcode from 'qrcode-terminal';
 import * as fs from 'fs';
 import * as Jimp from 'jimp';
+import http from 'http';
+
 const port = process.env.PORT || 8000;
 
 function getEconomyData() {
@@ -817,4 +819,10 @@ _¡Que empiece el drama de Solthar!_
     });
 }
 
-startGaaraBot();
+http.createServer((req, res) => {
+    res.writeHead(200, { 'Content-Type': 'text/plain' });
+    res.end('Bot LEWELLYN-BOT-SOLTHAR activo. Busque el QR en los logs de Render.');
+}).listen(port, () => {
+    console.log(`\n\n✅ Servidor web iniciado en el puerto ${port}.`);
+    startGaaraBot(); 
+});
