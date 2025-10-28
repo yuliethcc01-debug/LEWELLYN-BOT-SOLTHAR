@@ -68,37 +68,43 @@ async function startGaaraBot() {
         browser: ['Lewellyn-Dairelle', 'Safari', '1.0.0'] 
     });
 
-    sock.ev.on('connection.update', (update) => {
-    const { connection, lastDisconnect, qr } = update;
-    
-    if (connection === 'close') {
-        const shouldReconnect = (lastDisconnect.error instanceof Boom)?.output?.statusCode !== DisconnectReason.loggedOut;
-        console.log('🚨 La conexión se cerró. Reintentando:', shouldReconnect);
+  sock.ev.on('connection.update', (update) => {
+        const { connection, lastDisconnect, qr } = update;
         
-        if (shouldReconnect) {
-            setTimeout(() => {
-                startGaaraBot();
-            }, 10000); 
+        if (connection === 'close') {
+            const shouldReconnect = (lastDisconnect.error instanceof Boom)?.output?.statusCode !== DisconnectReason.loggedOut;
+            console.log('🚨 La conexión se cerró. Reintentando:', shouldReconnect);
+            
+            if (shouldReconnect) {
+                setTimeout(() => {
+                    startGaaraBot();
+                }, 10000); 
+            }
+        } 
+        
+        else if (connection === 'open') {
+            console.log('✅ Conexión establecida. Bot listo para comandos.');
+            
+            if (fs.existsSync('./qr.svg')) {
+                fs.unlinkSync('./qr.svg');
+                console.log('QR.svg eliminado al establecer conexión.');
+            }
         }
-    } 
-    
-    else if (connection === 'open') {
-        console.log('✅ Conexión establecida. Bot listo para comandos.');
-        if (fs.existsSync('./qr.svg')) {
-            fs.unlinkSync('./qr.svg');
-            console.log('QR.svg eliminado al establecer conexión. La web ahora mostrará el mensaje de activo.');
-        }
-    }
 
-    if (qr) {
-        console.log('⚠️ Se necesita escanear el QR. Generando código SVG...');
-        
-        qrcode.toFile('./qr.svg', qr, { type: 'svg' }, (err) => {
-            if (err) console.error("Error al guardar el QR:", err);
-            else console.log('QR guardado en qr.svg. ¡Dirígete a la URL de Render para escanear!');
-        });
-    }
-});
+        if (qr) {
+            console.log('⚠️ Se necesita escanear el QR. Generando código SVG...');
+            
+            qrcode.toString(qr, { type: 'svg' }, (err, svgString) => {
+                if (err) console.error("Error al generar el QR:", err);
+                else {
+                    fs.writeFileSync('./qr.svg', svgString);
+                    console.log('QR guardado en qr.svg. ¡Escanea la URL!');
+                }
+            });
+        }
+    });
+
+    sock.ev.on('creds.update', saveCreds);
 
     sock.ev.on('creds.update', saveCreds);
 
