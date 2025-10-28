@@ -69,11 +69,11 @@ async function startGaaraBot() {
     const sock = makeWASocket({
         auth: state,
         logger: P({ level: 'silent' }),
-        printQRInTerminal: true,
+        printQRInTerminal: false,
         browser: ['Lewellyn-Dairelle', 'Safari', '1.0.0'] 
     });
 
-  sock.ev.on('connection.update', (update) => {
+  sock.ev.on('connection.update', async (update) => {
         const { connection, lastDisconnect, qr } = update;
         
         if (connection === 'close') {
@@ -99,13 +99,13 @@ async function startGaaraBot() {
         if (qr) {
             console.log('⚠️ Se necesita escanear el QR. Generando código SVG...');
             
-            qrcode.toString(qr, { type: 'svg' }, (err, svgString) => {
-                if (err) console.error("Error al generar el QR:", err);
-                else {
-                    fs.writeFileSync('./qr.svg', svgString);
-                    console.log('QR guardado en qr.svg. ¡Escanea la URL!');
-                }
-            });
+            try {
+                const qrSvg = await qrcode.toString(qr, { type: 'svg' });
+                fs.writeFileSync('./qr.svg', qrSvg);
+                console.log('QR guardado en qr.svg. ¡Escanea la URL!');
+            } catch (err) {
+                console.error("Error al generar el QR:", err);
+            }
         }
     });
 
