@@ -798,49 +798,6 @@ _¡Que empiece el drama de Solthar!_
                 }
             }
 
-            else if (command === 'ban') {
-    if (!isGroup) {
-        return await sock.sendMessage(chatJid, { text: '❌ Este comando es exclusivo para la administración de Grupos del Reino.' }, { quoted: msg });
-    }
-    
-    if (!(await isSenderAdmin())) {
-        return await sock.sendMessage(chatJid, { text: '🚨 ¡ALTO! Solo los *Administradores del Reino* pueden usar el comando #ban.' }, { quoted: msg });
-    }
-
-    const targetJid = getTargetJid(msg);
-
-    if (!targetJid) {
-        return await sock.sendMessage(chatJid, { text: `⚠️ Uso: ${prefix}ban @usuario o cita el mensaje del usuario que deseas expulsar.` }, { quoted: msg });
-    }
-
-    const metadata = await sock.groupMetadata(chatJid);
-    const botJid = jidNormalizedUser(sock.user.id);
-    const botParticipant = metadata.participants.find(p => p.id === botJid);
-
-    if (!botParticipant || (botParticipant.admin !== 'admin' && botParticipant.admin !== 'superadmin')) {
-        return await sock.sendMessage(chatJid, { text: '🛡️ No puedo cumplir esta orden. Necesito ser *Administrador* del grupo para expulsar a otros.' }, { quoted: msg });
-    }
-
-    try {
-        const response = await sock.groupParticipantsUpdate(
-            chatJid,
-            [targetJid],
-            'remove'
-        );
-
-        if (response[0].status === '200' || response[0].status === '207') {
-            await sock.sendMessage(chatJid, { text: `👋 ¡Expulsado! El súbdito ${targetJid.split('@')[0]} ha sido retirado de los salones del Reino por decreto real.` }, { quoted: msg });
-        } else {
-             await sock.sendMessage(chatJid, { text: `🚨 Fallo en la expulsión. Es posible que el usuario sea Admin o que haya un error de permisos.` }, { quoted: msg });
-        }
-
-    } catch (error) {
-        console.error(`ERROR al expulsar a ${targetJid}:`, error.message);
-        await sock.sendMessage(chatJid, { text: `🚨 Error de Ejecución: No se pudo expulsar al usuario. Asegúrate de que no es un Admin y de que el bot tiene permisos suficientes.` }, { quoted: msg });
-    }
-}
-
-
             if (command === 'sticker') {
                 
                 const mediaMsg = msg.message.imageMessage || msg.message.extendedTextMessage?.contextInfo?.quotedMessage?.imageMessage;
