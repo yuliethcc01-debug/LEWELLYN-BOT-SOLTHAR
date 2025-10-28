@@ -4,6 +4,7 @@ import P from 'pino';
 import qrcode from 'qrcode-terminal';
 import * as fs from 'fs';
 import * as Jimp from 'jimp';
+const port = process.env.PORT || 8000;
 
 function getEconomyData() {
     try {
