@@ -11,6 +11,10 @@ if (fs.existsSync('./auth_info_baileys')) {
     fs.rmSync('./auth_info_baileys', { recursive: true, force: true });
 }
 
+process.on('unhandledRejection', (reason, promise) => {
+    console.error('⚠️ [ERROR FATAL] Unhandled Rejection at:', promise, 'reason:', reason);
+});
+
 const port = process.env.PORT || 8000;
 
 function getEconomyData() {
@@ -59,11 +63,37 @@ function saveSalaryCooldownData(data) {
 const sessionName = 'auth_info_baileys'; 
 const prefix = '#'; 
 
+async function getBotAdminStatus(sock, jid, botJid) {
+    if (!jid.endsWith('@g.us')) return false;
+    try {
+        const metadata = await sock.groupMetadata(jid);
+        const botParticipant = metadata.participants.find(p => p.id === botJid);
+        
+        return botParticipant && (botParticipant.admin === 'admin' || botParticipant.admin === 'superadmin');
+    } catch (e) {
+        console.error("Error al obtener metadata del grupo para el bot:", e);
+        return false;
+    }
+}
+async function getAdminStatus(sock, jid, participantJid) {
+    if (!jid.endsWith('@g.us')) return false;
+    try {
+        const metadata = await sock.groupMetadata(jid);
+        const participant = metadata.participants.find(p => p.id === participantJid);
+        
+        return participant && (participant.admin === 'admin' || participant.admin === 'superadmin');
+    } catch (e) {
+        console.error("Error al obtener metadata del grupo:", e);
+        return false;
+    }
+}
+
 const SALARY_AMOUNT = 4;
 const SALARY_COOLDOWN_MS = 48 * 60 * 60 * 1000;
 
 async function startGaaraBot() {
-    
+
+    try {
     const { state, saveCreds } = await useMultiFileAuthState(sessionName);
 
     const sock = makeWASocket({
@@ -798,6 +828,66 @@ _¡Que empiece el drama de Solthar!_
                 }
             }
 
+            const isGroup = msg.key.remoteJid.endsWith('@g.us');
+
+const isBotAdmin = await getBotAdminStatus(sock, msg.key.remoteJid, sock.user.id);
+const isAdmin = await getAdminStatus(sock, msg.key.remoteJid, msg.key.participant || msg.key.remoteJid);
+
+if (text.startsWith('#ban') && isGroup) {
+    if (!isAdmin) {
+        await sock.sendMessage(msg.key.remoteJid, { text: '❌ Solo los administradores del grupo pueden usar el comando !ban.' }, { quoted: msg });
+        return;
+    }
+
+    if (!isBotAdmin) {
+        await sock.sendMessage(msg.key.remoteJid, { text: '❌ El bot necesita ser administrador para poder banear miembros. Asigne el rol de administrador.' }, { quoted: msg });
+        return;
+    }
+
+    let banJid;
+    let targetMsg = msg.message?.extendedTextMessage?.contextInfo?.quotedMessage ? 
+                    msg.message.extendedTextMessage.contextInfo : 
+                    null;
+
+    if (targetMsg?.participant) {
+        banJid = targetMsg.participant;
+    } else if (targetMsg?.mentionedJid?.length > 0) {
+        banJid = targetMsg.mentionedJid[0];
+    }
+
+    if (!banJid) {
+        await sock.sendMessage(msg.key.remoteJid, { text: '⚠️ Debes responder al mensaje del usuario que quieres banear o mencionarlo.' }, { quoted: msg });
+        return;
+    }
+    
+    if (banJid === sock.user.id) {
+        await sock.sendMessage(msg.key.remoteJid, { text: '🤨 No puedo banearme a mí mismo, ¡soy el bot!' }, { quoted: msg });
+        return;
+    }
+    if (banJid === (msg.key.participant || msg.key.remoteJid)) {
+        await sock.sendMessage(msg.key.remoteJid, { text: '🤔 ¿Intentas banearte a ti mismo? ¡No lo hagas!' }, { quoted: msg });
+        return;
+    }
+    
+    try {
+        const response = await sock.groupParticipantsUpdate(
+            msg.key.remoteJid,
+            [banJid],
+            'remove'
+        );
+
+        if (response[0].status === '200') {
+            await sock.sendMessage(msg.key.remoteJid, { text: `✅ Usuario @${banJid.split('@')[0]} baneado con éxito.`, mentions: [banJid] }, { quoted: msg });
+        } else {
+            await sock.sendMessage(msg.key.remoteJid, { text: `❌ No se pudo banear al usuario. Código de estado: ${response[0].status}.`, mentions: [banJid] }, { quoted: msg });
+        }
+    } catch (error) {
+        console.error("Error al banear usuario:", error);
+        await sock.sendMessage(msg.key.remoteJid, { text: '🚨 Ocurrió un error desconocido al intentar banear. (Asegúrate de que el usuario no sea el creador del grupo).'}, { quoted: msg });
+    }
+    return;
+}
+
             if (command === 'sticker') {
                 
                 const mediaMsg = msg.message.imageMessage || msg.message.extendedTextMessage?.contextInfo?.quotedMessage?.imageMessage;
@@ -837,7 +927,14 @@ _¡Que empiece el drama de Solthar!_
             }
         }
     });
+
+    }
+
+catch (e) {
+    console.error('💣 ERROR FATAL INESPERADO en startGaaraBot, REINICIANDO en 10s:', e.message);
+    setTimeout(startGaaraBot, 10000);
 }
+} 
 
 http.createServer((req, res) => {
     const qrPath = './qr.svg';
