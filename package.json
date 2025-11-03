@@ -15,7 +15,7 @@
     "@whiskeysockets/baileys": "^7.0.0-rc.6",
     "jimp": "^1.6.0",
     "pino": "^10.1.0",
-    "qrcode": "^1.5.1"
+    "qrcode": "^1.5.1",
     "node-fetch": "^3.3.2" 
   }
 }
