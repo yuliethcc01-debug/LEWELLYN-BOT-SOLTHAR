@@ -5,6 +5,23 @@ import * as qrcode from 'qrcode';
 import * as fs from 'fs';
 import * as Jimp from 'jimp';
 import http from 'http';
+import fetch from 'node-fetch';
+
+const HEALTHCHECK_URL = 'https://hc-ping.com/16eaeca4-4ae8-441e-bc82-fe7f50a94478';
+
+function sendHeartbeat() {
+    fetch(HEALTHCHECK_URL)
+        .then(response => {
+            if (response.status === 200) {
+                console.log('💚 Heartbeat enviado correctamente. Bot activo y protegido.');
+            } else {
+                console.error(`💔 Error al enviar Heartbeat. Código: ${response.status}`);
+            }
+        })
+        .catch(error => {
+            console.error('💔 Error de red al enviar Heartbeat:', error.message);
+        });
+}
 
 if (fs.existsSync('./auth_info_baileys')) {
     console.log('🚨 Limpiando sesión auth_info_baileys para nuevo despliegue...');
@@ -119,6 +136,8 @@ async function startGaaraBot() {
         
         else if (connection === 'open') {
             console.log('✅ Conexión establecida. Bot listo para comandos.');
+
+              setInterval(sendHeartbeat, 9 * 60 * 1000);
             
             if (fs.existsSync('./qr.svg')) {
                 fs.unlinkSync('./qr.svg');
