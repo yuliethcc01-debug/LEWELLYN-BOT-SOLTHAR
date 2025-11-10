@@ -120,43 +120,47 @@ async function startGaaraBot() {
         browser: ['Lewellyn-Dairelle', 'Safari', '1.0.0'] 
     });
 
-  sock.ev.on('connection.update', async (update) => {
-        const { connection, lastDisconnect, qr } = update;
-        
-        if (connection === 'close') {
-            const shouldReconnect = (lastDisconnect.error instanceof Boom)?.output?.statusCode !== DisconnectReason.loggedOut;
-            console.log('🚨 La conexión se cerró. Reintentando:', shouldReconnect);
-            
-            if (shouldReconnect) {
-                setTimeout(() => {
-                    startGaaraBot();
-                }, 10000); 
-            }
-        } 
-        
-        else if (connection === 'open') {
-            console.log('✅ Conexión establecida. Bot listo para comandos.');
+        sock.ev.on('connection.update', async (update) => {
+            const { connection, lastDisconnect, qr } = update;
 
-              setInterval(sendHeartbeat, 9 * 60 * 1000);
-            
-            if (fs.existsSync('./qr.svg')) {
-                fs.unlinkSync('./qr.svg');
-                console.log('QR.svg eliminado al establecer conexión.');
+            if (qr) {
+                await qrcode.toFile('./qr.svg', qr, { type: 'svg' });
+                console.log(' 🚨  Se necesita escanear el QR. QR generado en la ruta /qr.svg');
             }
-        }
 
-        if (qr) {
-            console.log('⚠️ Se necesita escanear el QR. Generando código SVG...');
-            
-            try {
-                const qrSvg = await qrcode.toString(qr, { type: 'svg' });
-                fs.writeFileSync('./qr.svg', qrSvg);
-                console.log('QR guardado en qr.svg. ¡Escanea la URL!');
-            } catch (err) {
-                console.error("Error al generar el QR:", err);
+            if (connection === 'close') {
+                const sessionName = 'auth_info_baileys'; 
+                
+                let reason = new Boom(lastDisconnect?.error)?.output?.statusCode;
+                
+                let isLoggedOut = reason === DisconnectReason.loggedOut;
+                let shouldReconnect = !isLoggedOut; 
+
+                if (shouldReconnect) {
+                    console.log(' 🚨  La conexión se cerró por error temporal. Reintentando en 10s...');
+                    setTimeout(startGaaraBot, 10000);
+                } else {
+                    console.log(' 🛑  Desconexión definitiva (loggedOut). Borrando sesión rota...');
+                    
+                    if (fs.existsSync(sessionName)) {
+                        fs.rmSync(sessionName, { recursive: true, force: true });
+                        console.log(` ✅  Carpeta ${sessionName} eliminada. Reiniciando para generar nuevo QR.`);
+                    }
+                    
+                    startGaaraBot(); 
+                }
+
+            } else if (connection === 'open') {
+                console.log(' ✅ Conexión establecida. Bot listo para comandos.');
+                
+                setInterval(sendHeartbeat, 9 * 60 * 1000); 
+
+                if (fs.existsSync('./qr.svg')) {
+                    fs.unlinkSync('./qr.svg');
+                    console.log('QR.svg eliminado al establecer conexión.');
+                }
             }
-        }
-    });
+        });
 
     sock.ev.on('creds.update', saveCreds);
 
