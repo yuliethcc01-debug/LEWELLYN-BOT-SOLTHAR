@@ -7,6 +7,37 @@ import * as Jimp from 'jimp';
 import http from 'http';
 import fetch from 'node-fetch';
 
+const CUMPLES_FILE = './cumpleaños.json';
+
+function inicializarDB() {
+    if (!fs.existsSync(CUMPLES_FILE)) {
+        fs.writeFileSync(CUMPLES_FILE, JSON.stringify({}, null, 2));
+        console.log(' ✅ Base de datos de cumpleaños creada con éxito.');
+    } else {
+        console.log(' 📁 Base de datos de cumpleaños detectada.');
+    }
+}
+
+function leerCumples() {
+    try {
+        const data = fs.readFileSync(CUMPLES_FILE, 'utf-8');
+        return JSON.parse(data);
+    } catch (error) {
+        console.error('Error leyendo la base de datos:', error);
+        return {};
+    }
+}
+
+function guardarCumples(datos) {
+    try {
+        fs.writeFileSync(CUMPLES_FILE, JSON.stringify(datos, null, 2));
+    } catch (error) {
+        console.error('Error guardando en la base de datos:', error);
+    }
+}
+
+inicializarDB(); 
+
 const HEALTHCHECK_URL = 'https://hc-ping.com/16eaeca4-4ae8-441e-bc82-fe7f50a94478';
 
 function sendHeartbeat() {
@@ -243,6 +274,108 @@ Estoy a tu servicio para mantener el orden y la etiqueta.
                 }, { quoted: msg });
             } 
             
+            if (command === 'cumple') {
+                const args = body.trim().split(/ +/).slice(1);
+                const mention = msg.message.extendedTextMessage?.contextInfo?.mentionedJid?.[0];
+                const fecha = args[1];
+
+                if (!mention || !fecha) {
+                    await sock.sendMessage(msg.key.remoteJid, { 
+                        text: ' ⚠ ️ *Uso Incorrecto*\n\nEscribe: `!cumple @usuario DD/MM` \nEjemplo: `!cumple @Gaara 15/07`' 
+                    }, { quoted: msg });
+                } else {
+                    try {
+                        const db = leerCumples(); 
+                        db[mention] = { 
+                            fecha: fecha,
+                            nombre: msg.message.extendedTextMessage?.contextInfo?.mentionedJid?.[0].split('@')[0] || 'Usuario'
+                        };
+                        guardarCumples(db); 
+
+                        await sock.sendMessage(msg.key.remoteJid, { 
+                            text: ` ✅ *¡Cumpleaños Registrado!*\n\n👤 *Usuario:* @${mention.split('@')[0]}\n📅 *Fecha:* ${fecha}\n\n_Ahora el bot recordará esta fecha._`,
+                            mentions: [mention]
+                        }, { quoted: msg });
+                    } catch (error) {
+                        console.error('Error al guardar cumple:', error);
+                        await sock.sendMessage(msg.key.remoteJid, { text: ' ❌ Error al acceder a la base de datos.' });
+                    }
+                }
+            }
+
+            if (command === 'vercumples' || command === 'listacumples') {
+                try {
+                    const db = leerCumples();
+                    const usuarios = Object.keys(db);
+
+                    if (usuarios.length === 0) {
+                        await sock.sendMessage(msg.key.remoteJid, { 
+                            text: ' 📂 La lista está vacía.*\nUsa `!cumple @usuario DD/MM` para agregar uno.' 
+                        }, { quoted: msg });
+                    } else {
+                        let lista = ' 🎂 LISTA DE CUMPLEAÑOS 🎂\n\n';
+                        usuarios.forEach(jid => {
+                            lista += `• @${jid.split('@')[0]} ➜ *${db[jid].fecha}*\n`;
+                        });
+                        
+                        await sock.sendMessage(msg.key.remoteJid, { 
+                            text: lista, 
+                            mentions: usuarios 
+                        }, { quoted: msg });
+                    }
+                } catch (error) {
+                    console.error('Error al listar cumples:', error);
+                }
+            }
+
+            if (command === "!cumpleshoy") {
+    const db = leerCumples();
+    const hoy = new Date();
+    const diaMesHoy = `${hoy.getDate().toString().padStart(2, '0')}/${(hoy.getMonth() + 1).toString().padStart(2, '0')}`;
+    
+    const cumpleañeros = Object.keys(db).filter(jid => db[jid].fecha === diaMesHoy);
+
+    if (cumpleañeros.length === 0) {
+        await sock.sendMessage(msg.key.remoteJid, { text: "📅 Hoy no hay ningún cumpleaños registrado." }, { quoted: msg });
+    } else {
+        let mensaje = "🎂 *¡CUMPLEAÑOS DE HOY!* 🎂\n\n";
+        cumpleañeros.forEach(jid => {
+            mensaje += `- @${jid.split('@')[0]} 🎉\n`;
+        });
+        await sock.sendMessage(msg.key.remoteJid, { text: mensaje, mentions: cumpleañeros }, { quoted: msg });
+    }
+}
+
+if (command === "!borrarcumple") {
+    const menciones = msg.message.extendedTextMessage?.contextInfo?.mentionedJid;
+
+    if (!menciones || menciones.length === 0) {
+        await sock.sendMessage(msg.key.remoteJid, { 
+            text: "❌ *Error:* Debes mencionar al usuario que deseas eliminar.\nEjemplo: !borrarcumple @usuario" 
+        }, { quoted: msg });
+        return;
+    }
+
+    const jidParaBorrar = menciones[0];
+    const db = leerCumples();
+
+    if (db[jidParaBorrar]) {
+        const nombreEliminado = db[jidParaBorrar].nombre || "el usuario";
+        
+        delete db[jidParaBorrar];
+        guardarCumples(db);
+
+        await sock.sendMessage(msg.key.remoteJid, { 
+            text: `🗑️ Se ha eliminado el registro de cumpleaños de @${jidParaBorrar.split('@')[0]}. Ahora puedes registrarlo de nuevo correctamente.`, 
+            mentions: [jidParaBorrar] 
+        }, { quoted: msg });
+    } else {
+        await sock.sendMessage(msg.key.remoteJid, { 
+            text: "⚠️ Ese usuario no tiene ningún cumpleaños registrado en mi base de datos." 
+        }, { quoted: msg });
+    }
+}
+
             if (command === 'tagall') {
                 const isGroup = msg.key.remoteJid.endsWith('@g.us');
                 
@@ -888,4 +1021,3 @@ http.createServer((req, res) => {
     console.log(`\n\n✅ Servidor web iniciado en el puerto ${port}.`);
     startGaaraBot(); 
 });
-
