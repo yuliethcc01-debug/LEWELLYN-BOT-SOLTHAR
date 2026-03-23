@@ -21,12 +21,6 @@ function sendHeartbeat() {
         .catch(error => {
             console.error('💔 Error de red al enviar Heartbeat:', error.message);
         });
-}
-
-if (fs.existsSync('./auth_info_baileys')) {
-    console.log('🚨 Limpiando sesión auth_info_baileys para nuevo despliegue...');
-    fs.rmSync('./auth_info_baileys', { recursive: true, force: true });
-}
 
 process.on('unhandledRejection', (reason, promise) => {
     console.error('⚠️ [ERROR FATAL] Unhandled Rejection at:', promise, 'reason:', reason);
@@ -120,31 +114,30 @@ async function startGaaraBot() {
         browser: ['Lewellyn-Dairelle', 'Safari', '1.0.0'] 
     });
 
-        sock.ev.on('connection.update', async (update) => {
-            const { connection, lastDisconnect, qr } = update;
+         sock.ev.on('connection.update', async (update) => {
+        const { connection, lastDisconnect, qr } = update;
 
-            if (qr) {
-                await qrcode.toFile('./qr.svg', qr, { type: 'svg' });
-                console.log(' 🚨  Se necesita escanear el QR. QR generado en la ruta /qr.svg');
+        if (qr) {
+            console.log("✅ Escanea el código QR para conectar.");
+        }
+
+        if (connection === 'close') {
+            const shouldReconnect = (lastDisconnect.error)?.output?.statusCode !== DisconnectReason.loggedOut;
+            console.log('Conexión cerrada. Reintentando:', shouldReconnect);
+            if (shouldReconnect) {
+                connectToWhatsApp();
             }
+        } else if (connection === 'open') {
+            console.log('🚀 Bot conectado exitosamente.');
 
-            if (connection === 'close') {
-                const sessionName = 'auth_info_baileys'; 
-                
-                let reason = new Boom(lastDisconnect?.error)?.output?.statusCode;
-                
-                let isLoggedOut = reason === DisconnectReason.loggedOut;
-                let shouldReconnect = !isLoggedOut; 
+            setInterval(async () => {
+                try {
+                    await sock.updateProfileStatus(`Activo: ${new Date().toLocaleTimeString()}`);
+                } catch (e) {
+                    console.log("Error en Heartbeat");
+                }
+            }, 1000 * 60 * 5);
 
-                if (shouldReconnect) {
-                    console.log(' 🚨  La conexión se cerró por error temporal. Reintentando en 10s...');
-                    setTimeout(startGaaraBot, 10000);
-                } else {
-                    console.log(' 🛑  Desconexión definitiva (loggedOut). Borrando sesión rota...');
-                    
-                    if (fs.existsSync(sessionName)) {
-                        fs.rmSync(sessionName, { recursive: true, force: true });
-                        console.log(` ✅  Carpeta ${sessionName} eliminada. Reiniciando para generar nuevo QR.`);
                     }
                     
                     startGaaraBot(); 
@@ -857,6 +850,14 @@ http.createServer((req, res) => {
         res.writeHead(200, { 'Content-Type': 'text/plain' });
         res.end('Bot LEWELLYN-BOT-SOLTHAR activo. ¡Ya está conectado a WhatsApp!');
     }
+    
+    const express = require('express');
+const app = express();
+const port = process.env.PORT || 3000;
+
+app.get('/', (req, res) => res.send('Bot Online ⚡'));
+app.listen(port, () => console.log(`Servidor escuchando en puerto ${port}`));
+
 }).listen(port, () => {
     console.log(`\n\n✅ Servidor web iniciado en el puerto ${port}.`);
     startGaaraBot(); 
