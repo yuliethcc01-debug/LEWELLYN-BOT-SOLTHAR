@@ -242,33 +242,6 @@ Estoy a tu servicio para mantener el orden y la etiqueta.
                     caption: menuText 
                 }, { quoted: msg });
             } 
-            
-            if (command === 'tagall') {
-                const isGroup = msg.key.remoteJid.endsWith('@g.us');
-                
-                if (!isGroup) {
-                    return await sock.sendMessage(msg.key.remoteJid, { text: 'Este comando solo puede usarse en un grupo.' }, { quoted: msg });
-                }
-
-                const metadata = await sock.groupMetadata(msg.key.remoteJid);
-                const participants = metadata.participants;
-                
-                let mentiosText = '✉️ ¡Atención! Estimadas damas y caballeros, les traigo una noticia de interés:\n\n';
-                let mentionedJids = [];
-                
-                for (let participant of participants) {
-                    const jid = participant.id;
-                    mentiosText += `@${jid.split('@')[0]}\n`;
-                    mentionedJids.push(jid);
-                }
-                
-                await sock.sendMessage(msg.key.remoteJid, { 
-                    text: mentiosText,
-                    mentions: mentionedJids 
-                }, { quoted: msg });
-
-                console.log(`[TAGALL] Mencionados ${participants.length} miembros en el grupo: ${metadata.subject}`);
-            }
 
             if (command === 'addmoney') {
                 
