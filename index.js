@@ -141,7 +141,6 @@ async function startGaaraBot() {
                     }
                     
                     startGaaraBot(); 
-                }
 
             } else if (connection === 'open') {
                 console.log(' ✅ Conexión establecida. Bot listo para comandos.');
