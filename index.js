@@ -21,7 +21,7 @@ function sendHeartbeat() {
         .catch(error => {
             console.error('💔 Error de red al enviar Heartbeat:', error.message);
         });
-
+}
 process.on('unhandledRejection', (reason, promise) => {
     console.error('⚠️ [ERROR FATAL] Unhandled Rejection at:', promise, 'reason:', reason);
 });
@@ -846,18 +846,10 @@ http.createServer((req, res) => {
             </div>
         `);
     } 
-    else {
+else {
         res.writeHead(200, { 'Content-Type': 'text/plain' });
         res.end('Bot LEWELLYN-BOT-SOLTHAR activo. ¡Ya está conectado a WhatsApp!');
     }
-    
-    const express = require('express');
-const app = express();
-const port = process.env.PORT || 3000;
-
-app.get('/', (req, res) => res.send('Bot Online ⚡'));
-app.listen(port, () => console.log(`Servidor escuchando en puerto ${port}`));
-
 }).listen(port, () => {
     console.log(`\n\n✅ Servidor web iniciado en el puerto ${port}.`);
     startGaaraBot(); 
